@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+
+    <title>reveal.js</title>
+
+    <link rel="stylesheet" href="dist/reset.css" />
+    <link rel="stylesheet" href="dist/reveal.css" />
+    <link rel="stylesheet" href="dist/theme/black.css" />
+
+    <!-- Theme used for syntax highlighted code -->
+    <link rel="stylesheet" href="plugin/highlight/monokai.css" />
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <section>
+          <h4>친환경전기선박 육상테스트베드용 해양정보시스템</h4>
+          <img data-src="dist/assets/타이틀페이지.jpg" style="height: 400px" />
+        </section>
+        <section>
+          <h2>목차</h2>
+          <ol>
+            <li>개요</li>
+            <li>주요 기능</li>
+            <li>데이터베이스 설계 및 벡엔드 API 서버 개발</li>
+            <li>다음 단계...</li>
+            <li>링크</li>
+          </ol>
+        </section>
+
+        <section data-transition="slide">
+          <h2>1. 개요</h2>
+        </section>
+        <section data-transition="slide">
+          <h4>개발 배경</h4>
+          <img data-src="dist/assets/친환경전기선박.png" style="height: 300px" />
+          <ul>
+            <li style="font-size: 25px">
+              친환경전기선박의 육상 테스트베드에서 선박의 거동모사모의에 활용될 과거 위험사례별
+              수치모델 기반의 해양환경정보와 다양한 해양공간정보를 먼저 정의하고 이를 수집하고
+              처리하여 데이터베이스에 적재했습니다.
+            </li>
+            <li style="font-size: 25px">
+              하지만 이 데이터들이 제대로 DB에 적재되었는지 확인할 필요성과 선박 엔지니어들이 해당
+              데이터를 가지고 선박 거동모사에 활용할 수 있도록 시각적으로 확인하고 다운로드할 수
+              있는 플랫폼이 필요하다고 느끼고 프로젝트를 시작하게 되었습니다.
+            </li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>사용 스택 및 기술</h4>
+          <img data-src="dist/assets/아키텍쳐_설계.png" style="height: 300px" />
+          <ul>
+            <li style="font-size: 25px">프론트엔드 - React, Redux</li>
+            <li style="font-size: 25px">
+              지도 및 그래픽스 - Mapbox GL JS, Deck.gl, WebGL2, GLSL(OpenGL Shading Language)
+            </li>
+            <li style="font-size: 25px">벡엔드 - Python, FastAPI</li>
+            <li style="font-size: 25px">데이터베이스 - PostgreSQL, PostGIS</li>
+            <li style="font-size: 25px">배포 및 관리 - Docker, Docker Compose, Nginx, Traefik</li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>Deck.gl 라이브러리 선택 이유</h4>
+          <img data-src="dist/assets/deckgl.png" style="height: 400px" />
+          <ul>
+            <li style="font-size: 25px">
+              Uber 사에서 만든 WebGL2 GPU-가속 렌더링 기반의 대용량 공간 데이터 시각화
+              프레임워크로서 Mapbox 및 Google Maps 등의 지도 라이브러리와 호환이 가능합니다.
+            </li>
+            <li style="font-size: 25px">
+              또한, GeoJsonLayer, IconLayer, ScatterplotLayer 등 다양한 빌트인 레이어를 이미
+              제공하고 있으며, 문서화가 잘 되어있어서 WebGL2와 GLSL를 안다면 Custom 레이어 클래스를
+              직접 개발하여 활용 할 수 있었습니다.
+            </li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>왜 WebGL을 선택했는지?</h4>
+          <img data-src="dist/assets/WEBGL.png" style="height: 400px" />
+          <p>
+            <small
+              >웹 브라우저에서도 클라이언트의 GPU(그래픽 프로세싱 유닛)를 활용할 수 있도록 해주는
+              브라우저용 JavaScript API specification
+            </small>
+          </p>
+          <p>
+            <small>➜ 웹/모바일에서도 GPU-가속 3D 렌더링 가능!</small>
+          </p>
+        </section>
+        <section data-transition="slide">
+          <h4>
+            CPU
+            <span style="text-transform: lowercase">vs.</span>
+            GPU
+          </h4>
+          <img data-src="dist/assets/CPU_vs_GPU.webp" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">CPU: 고성능 but 적은 core 수</li>
+            <li style="font-size: 30px">GPU: 저성능 but 많은 core 수</li>
+          </ul>
+          <p>
+            <small>
+              ➜ CPU 코어 자체는 GPU의 그것보다 강력하지만, 그래픽 계산 및 병렬 프로세스에 있어
+              다수의 코어로 이뤄진 GPU가 더 좋은 성능을 보여줍니다.</small
+            >
+          </p>
+        </section>
+        <section data-transition="slide">
+          <h4>WebGL 렌더링 파이프라인</h4>
+          <img data-src="dist/assets/WEBGL_렌더링_파이프라인.png" style="height: 400px" />
+          <p>
+            <small>
+              ➜ 픽셀이 백 만개라면, CPU는 백 만개의 픽셀을 하나씩 돌면서 픽셀에 점을 찍는 반면,
+              GPU는 백 만개의 점을 찍고 래스터화 과정이 서로 격리되어 독립적이어서 빠르게 병렬적으로
+              처리할 수 있습니다.</small
+            >
+          </p>
+        </section>
+
+        <section data-transition="slide">
+          <h2>2. 주요 기능</h2>
+        </section>
+        <section data-transition="slide">
+          <h4>랜딩페이지</h4>
+          <img data-src="dist/assets/랜딩페이지_1.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">Mapbox GL JS 기반의 지도 화면</li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>랜딩페이지 CONT</h4>
+          <img data-src="dist/assets/랜딩페이지_2.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">다양한 스타일의 Mapbox 배경 지도 선택</li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>랜딩페이지 CONT</h4>
+          <img data-src="dist/assets/랜딩페이지_3.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">
+              Natural Earth Data에서 다운로드 받은 다양한 해상도의 해안선 선택
+            </li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>랜딩페이지 CONT</h4>
+          <img data-src="dist/assets/랜딩페이지_4.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">
+              친환경전기선박의 거동모사에 필요한 다양한 해양환경 및 공간정보를 확인할 수 있는 서랍
+              패널
+            </li>
+            <ul>
+              <li style="font-size: 20px">
+                위험사례 재현정보 - 태풍, 강풍, 폭우 등 과거 10년 간의 위험사례별 해양환경
+                재현정보(수치모델)
+              </li>
+              <li style="font-size: 20px">
+                위험사례 관측정보 - 태풍, 강풍, 폭우 등 과거 10년 간의 위험사례별 해양환경 관측정보
+              </li>
+              <li style="font-size: 20px">
+                해양상태정보 - 조석/조류 등 특이 해양 상태를 나타내는 정보
+              </li>
+              <li style="font-size: 20px">
+                해역특성정보 - 선박밀집도, 사고이력 등 해양활동에 따른 해역특성과 관련된
+                해양공간정보
+              </li>
+            </ul>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>위험사례 재현정보</h4>
+          <img data-src="dist/assets/위험사례_재현정보_1.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">
+              테이블 형태로 과거 위험사례별 수치모델기반의 재현정보 데이터셋 목록 조회 및 선택
+            </li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>위험사례 재현정보 CONT</h4>
+          <img data-src="dist/assets/위험사례_재현정보_2.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">
+              활용가능한 적절한 Deck.gl 빌트인 레이어가 없어서 커스텀 레이어를 개발해 격자 그리드
+              형태의 대용량 래스터 데이터를 가시화
+            </li>
+            <li style="font-size: 30px">
+              총 9개의 변수 별로 한 시간 간격 5일 이상의 기간으로 이뤄진 시공간 데이터셋에서 특정
+              시간 대의 해양의 수온 변수를 가시화한 화면
+            </li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>위험사례 재현정보 CONT</h4>
+          <img data-src="dist/assets/위험사례_재현정보_3.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">선택한 데이터셋 내 변수 및 시간 변경 가능</li>
+            <li style="font-size: 30px">
+              선택한 데이터셋 중에서 파랑의 파고 변수 데이터를 가시화한 화면
+            </li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>위험사례 재현정보 CONT</h4>
+          <img data-src="dist/assets/위험사례_재현정보_4.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">
+              선택한 데이터셋 중에서 크기와 방향 정보를 가진 벡터 형태의 표층해류 변수 데이터를
+              추가로 가시화한 화면
+            </li>
+            <li style="font-size: 30px">
+              Deck.gl은 계층적 구조로 되어있어 여러 레이어를 동시에 시각화할 수 있습니다.
+            </li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>위험사례 재현정보 CONT</h4>
+          <img data-src="dist/assets/위험사례_재현정보_5.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">
+              선택한 데이터셋 중에서 기상의 기온 변수 데이터를 가시화한 화면
+            </li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>위험사례 관측정보</h4>
+          <img data-src="dist/assets/위험사례_관측정보_1.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">
+              테이블 형태의 과거 위험사례별 수집한 관측정보 목록 조회 및 선택
+            </li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>위험사례 관측정보 CONT</h4>
+          <img data-src="dist/assets/위험사례_관측정보_2.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">
+              Deck.gl이 제공하는 빌트인 레이어 중 하나인 GeoJsonLayer를 활용하여 경로에 따라서
+              변하는 태풍의 강도 별 가시화
+            </li>
+            <li style="font-size: 30px">
+              마우스 Hovering을 통해 경로별 태풍의 상세 정보를 확인 가능
+            </li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>해양상태정보</h4>
+          <img data-src="dist/assets/해양상태정보_1.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">테이블 형태의 특이 해양상태정보 목록 조회 및 선택</li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>해양상태정보 CONT</h4>
+          <img data-src="dist/assets/해양상태정보_2.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">
+              Deck.gl이 제공하는 빌트인 레이어 중 하나인 IconLayer를 활용하여 연간 관측된 최강
+              창·낙조류의 유향유속 정보 가시화
+            </li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>해양상태정보 CONT</h4>
+          <img data-src="dist/assets/해양상태정보_3.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">
+              마우스 Hovering을 통해 지점별 상세 조류관측 정보 확인 가능
+            </li>
+            <li style="font-size: 30px">데이터 필터링 및 크기 및 색상 변경 기능 개발</li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>해역특성정보</h4>
+          <img data-src="dist/assets/해역특성정보_1.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">
+              트리 구조 형태의 다양한 해양공간정보 목록 조회 및 토글 온/오프 선택
+            </li>
+            <li style="font-size: 30px">쉽게 구분하기 위해 크게 사고, 항로 및 영역 별로 대분류</li>
+            <li style="font-size: 30px">
+              점, 선, 폴리곤 등 해역특성과 관련된 다양한 해양공간정보 가시화
+            </li>
+          </ul>
+        </section>
+
+        <section data-transition="slide">
+          <h2>3. 데이터베이스 설계 및 벡엔드 API 서버 개발</h2>
+        </section>
+        <section data-transition="slide">
+          <h4>데이터베이스 설계</h4>
+          <img data-src="dist/assets/데이터베이스_설계.png" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">
+              새로운 데이터 추가될 수 있음을 고려하여 크게 위험사례 재현정보, 위험사례 관측정보,
+              해양상태정보, 해역특성정보를 스키마로 분류
+            </li>
+            <ul>
+              <li style="font-size: 20px">cases_hindcasts 스키마 - 위험사례 재현정보</li>
+              <li style="font-size: 20px">cases_observations 스키마 - 위험사례 관측정보</li>
+              <li style="font-size: 20px">conditions_tidal_streams 스키마 - 해양상태정보</li>
+              <li style="font-size: 20px">characteristics_* 스키마 - 해역특성정보</li>
+            </ul>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>데이터베이스 설계 CONT</h4>
+          <img data-src="dist/assets/위험사례_재현정보_스키마.png" style="height: 400px" />
+          <ul>
+            <li style="font-size: 25px">
+              이 중에서 위험사례 재현정보 스키마 & 테이블을 설계하는데 가장 많이 고민하고 많은
+              시간을 할애했습니다.
+            </li>
+            <li style="font-size: 25px">
+              왜냐하면 우리가 수집한 과거 해양 및 대기환경 재현정보는 netCDF 파일 포맷의 수치모델의
+              결과로서 변수 별로 다차원 배열의 시공간적으로 변하는 데이터들이 들어있는
+              데이터셋이었습니다.
+            </li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>데이터베이스 설계 CONT</h4>
+          <img data-src="dist/assets/NETCDF.png" style="height: 400px" />
+          <ul>
+            <li style="font-size: 30px">
+              이러한 netCDF 파일의 특성을 고려하여 공간정보에 용이한 PostgreSQL과 PostGIS 확장자를
+              활용하여 테이블을 설계하고 Relations을 설정해 쿼리 시간을 최적화할 수 있었습니다.
+            </li>
+          </ul>
+        </section>
+        <section data-transition="slide">
+          <h4>벡엔드 API 서버 개발</h4>
+          <img data-src="dist/assets/API_문서.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 25px">
+              Python에 익숙한 개발자로서 API를 만들기 위해 Python 기반의 웹 프레임워크인 FastAPI를
+              활용했습니다.
+            </li>
+            <li style="font-size: 25px">
+              문서화가 잘 되어 있어서 타 Python 기반의 웹 프레임워크보다 학습 비용이 낮다고 생각해
+              채택했습니다. 또한 자동 생성되는 API 문서화 도구인 Swagger를 통해 각 API 엔드포인트 별
+              확인이 가능하여 팀원들과의 공유가 원할할 것이라 생각했습니다.
+            </li>
+          </ul>
+        </section>
+
+        <section data-transition="slide">
+          <h2>4. 다음 단계...</h2>
+        </section>
+        <section data-transition="slide">
+          <h4>기능 추가</h4>
+          <img data-src="dist/assets/목포_친환경선박_기술_실증센터.jpg" style="height: 400px" />
+          <ul>
+            <li style="font-size: 25px">
+              내년에 목포에 친환경선박 기술 실증센터가 설립되면 선박 엔지니어들과 협력하여
+              거동모사에 필요한 데이터 포맷에 맞게 플랫폼으로부터 데이터를 다운로드하여 활용할 수
+              있도록 관련 벡엔드 및 프론트엔드 기능을 추가적으로 개발할 예정에 있습니다.
+            </li>
+            <li style="font-size: 25px">
+              해양정보를 바탕으로 최적의 선박항로를 산출하는 기능을 개발할 예정에 있습니다.
+            </li>
+          </ul>
+        </section>
+
+        <section data-transition="slide">
+          <h2>5. 링크</h2>
+          <p>
+            <small>테스트 배포 링크와 API 문서화 링크와 GitHub 링크를 참고했습니다. </small>
+          </p>
+          <ul>
+            <li style="font-size: 30px">
+              <a href="http://211.178.39.246:12580/" target="_blank">테스트 배포 링크</a>
+            </li>
+            <li style="font-size: 30px">
+              <a href="http://211.178.39.246:12580/api/docs" target="_blank">API 문서화 링크</a>
+            </li>
+            <li style="font-size: 30px">
+              <a href="https://github.com/dillabadu2138/hilsvis" target="_blank">GitHub 링크</a>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </div>
+
+    <script src="dist/reveal.js"></script>
+    <script src="plugin/notes/notes.js"></script>
+    <script src="plugin/markdown/markdown.js"></script>
+    <script src="plugin/highlight/highlight.js"></script>
+    <script>
+      // More info about initialization & config:
+      // - https://revealjs.com/initialization/
+      // - https://revealjs.com/config/
+      Reveal.initialize({
+        hash: true,
+        slideNumber: 'c/t',
+        autoPlayMedia: true,
+        // Learn about plugins: https://revealjs.com/plugins/
+        plugins: [RevealMarkdown, RevealHighlight, RevealNotes],
+      });
+    </script>
+  </body>
+</html>
